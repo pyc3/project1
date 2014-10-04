@@ -64,14 +64,18 @@ class DVRouter (Entity): # only hosts and dvrouters
 
             return
 
-        elif isinstance(packet, RoutingUpdate):
+        elif isinstance(packet, RoutingUpdate): # ROUTING UPDATE PACKET
             routing_table = RoutingUpdate.paths # am i allowed to do this?
-            for a in routing_table.values() and b in routing_table.keys(): # can i do this?
-                if a == 0: # routing update doesn't give you source?
-                    source = b
+            for pkt, pt in ports.items():
+                if pt == port: # do i need to instantiate source somewhere else? will def be something right?
+                    source = pkt # get the source of routing packet to update your forwarding table
             for x in routing_table.keys():
-                forwarding_table[(self, source)] = routing_table[]
-            return
+                # update their row of forwarding table
+                forwarding_table[(source,x)] = routing_table[x]
+                # update your row of forwarding table
+                if (routing_table[x] + neighbors[source]) < forwarding_table[self,x][0]:
+                    forwarding_table[self,x] = (routing_table[x] + neighbors[source], source)
+            self.sendUpdate()
 
         else: # DATA PACKET
             if (self, packet.dst) in forwarding_table.keys():
@@ -82,6 +86,17 @@ class DVRouter (Entity): # only hosts and dvrouters
                     self.send(packet, ports[packet.dst])
             # else: drop the packet! (just don't send)
 
+    def sendUpdate(self):
+        forwarding_table = self.forwarding_table
+        neighbors = self.neighbors
+        for n in neighbors.keys():
+            message = RoutingUpdate()
+            for x,y in forwarding_table.items():
+                if y[1] == n:
+                    message.add_destination(x[1], float("inf"))
+                else:
+                    message.add_destination(x[1], y[0])
+            self.send(message, self.ports[n])
 
 
     # ROUTING UPDATE PACKET -- sending update to all your neighbors, not a path at all
