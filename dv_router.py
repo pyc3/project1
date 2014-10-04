@@ -1,25 +1,36 @@
 from sim.api import *
 from sim.basics import *
-# from sim.core import * # necessary?
-
-# NullAddress = core.NullAddress
 
 '''
 Create your distance vector router in this file.
 '''
 class DVRouter (Entity): # only hosts and dvrouters
     def __init__(self):
-        # Add your code here!
-
         self.neighbors = {} # check through_who when deciding what to routeupdate them, for the extra 10 points, {A:1, B:2}
         self.forwarding_table = {} # example forwarding table: {(A,1) : C, (B,2) : D, (dest,cost) : through_who}
-        self.history = {} # keep history of what you've sent each of your neighbors (HINT HINT)
-        self.ports = {} # keep track of which ports link to which neighbors, from discovery packet
+        # {((from, dest): (distance, from who))}, example: {(a, b):(2, a)}
+        self.history = {} # keep history of what you've sent each of your neighbors (HINT HINT) {neighbor: last sent, neighbor1: last sent}
+        self.ports = {} # keep track of which ports link to which neighbors, from discovery packet {neighbor: port#, neighbor1: port1#}
         pass
 
+    def reRoute(self, x, packet, f_table, n_table): # x is specific neighbor
+      f = f_table
+      n = n_table
+      msg = RoutingUpdate(packet)
+      
+      x1 = f_table[(self, x)] # a list
+      total_dist = 0
+      if (x1[1] == self) {
+        total_dist = x1[0] # distance to my neighbor
+      } else {
+        total_dist = n_table[x1[1]] + x1[0] # distance from my closest neighbor + distance to neighbor
+      }
+      f_table[(self, x)] = 
+
+      return 
+
     def handle_rx (self, packet, port):
-        # Add your code here!
-        # routing updates could be diff for diff neighbors, store routing updates as (E-3, C)
+        # routing updates could be diff for diff neighbors, store routing updates as {(a, b):(2, a)}
 
         # DISCOVERY PACKET
         if isinstance(packet, DiscoveryPacket):
@@ -46,10 +57,11 @@ class DVRouter (Entity): # only hosts and dvrouters
         		# test
         		print 'discovery packet DISCOVERED :D :D'
         		self.ports[packet.src] = port # add which neighbors are reachable from which port
-        		self.neighbors[packet.src] = packet.latency
-        		self.forwarding_table[(packet.dst, packet.latency)] = packet.src # flip dst and src?
-        	
-        		#D, (dest,cost) : through_who
+        		self.neighbors[packet.src] = packet.latency # distance to neighbors
+        		self.forwarding_table[(self, packet.src)] = (packet.latency, self)
+            for x in len(self.neighbors.keys()):
+              message = reRoute(x, packet, forwarding_table, neighbors) # a routingupdate
+
         		# check if path goes through neighbor you're thinking of sending it to
         		for x in self.neighbors.keys():
         			message = RoutingUpdate()
@@ -64,7 +76,7 @@ class DVRouter (Entity): # only hosts and dvrouters
 
 	        	return
 
-	    # ROUTING UPDATE PACKET
+	    # ROUTING UPDATE PACKET -- sending update to all your neighbors, not a path at all
 	    # routing update comes in...
     	# update forwarding table
    #  	if isinstance(packet, RoutingUpdate):
@@ -102,6 +114,8 @@ class DVRouter (Entity): # only hosts and dvrouters
 			# 		send(packet, port) # does it matter what port you send packets out of? do i need to input a third parameter or will it be automatic?
         		
    #      	return
+
+   # drop data packet if you don't have a route for it
 
 
         #raise NotImplementedError
