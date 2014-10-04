@@ -64,7 +64,13 @@ class DVRouter (Entity): # only hosts and dvrouters
 
             return
 
-        elif isinstance(packet, RoutingUpdate:
+        elif isinstance(packet, RoutingUpdate):
+            routing_table = RoutingUpdate.paths # am i allowed to do this?
+            for a in routing_table.values() and b in routing_table.keys(): # can i do this?
+                if a == 0: # routing update doesn't give you source?
+                    source = b
+            for x in routing_table.keys():
+                forwarding_table[(self, source)] = routing_table[]
             return
 
         else: # DATA PACKET
