@@ -42,16 +42,29 @@ class DVRouter (Entity): # only hosts and dvrouters
                 if (((self,x) not in self.forwarding_table) or ((routing_table[x] + self.neighbors[source]) < self.forwarding_table[self,x][0])):
                     self.log("goes in here")
                     self.forwarding_table[self,x] = (routing_table[x] + self.neighbors[source], source)
+                if (self,x) in self.forwarding_table:
+                    if ((routing_table[x] + self.neighbors[source]) == self.forwarding_table[self,x][0]):
+                        # pick port # that is lower
+                        port1 = self.ports[source]
+                        if (self == self.forwarding_table[self,x][1]):
+                            port2 = self.ports[x] # 
+                        else:
+                            port2 = self.ports[self.forwarding_table[self,x][1]]
+                        if port1 < port2:
+                            self.forwarding_table[self,x] = (routing_table[x] + self.neighbors[source], source)
             
             self.sendUpdate()
 
         else: # DATA PACKET
             if (self, packet.dst) in self.forwarding_table.keys():
-                values = self.forwarding_table[(self, packet.dst)]
-                if values[1] != self:
-                    self.send(packet, self.ports[values[1]])
+                if ((self.forwarding_table[(self, packet.dst)][1] != self) and (self.forwarding_table[(self, packet.dst)] <= 50)):
+                    self.send(packet, self.ports[self.forwarding_table[(self, packet.dst)][1]])
                 else:
-                    self.send(packet, self.ports[packet.dst])
+                    if packet.dst in self.neighbors:
+                        self.send(packet, self.ports[packet.dst])
+                    else:
+                        out = self.forwarding_table[self, packet.dst][1]
+                        self.send(packet, self.ports[out])
             # else: drop the packet! (just don't send)
 
     def sendUpdate (self):
