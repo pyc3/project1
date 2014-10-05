@@ -35,7 +35,7 @@ class FakeEntity (Entity):
             update = RoutingUpdate()
             update.add_destination(self.announce[0], self.announce[1])
             self.send(update, flood=True)
-
+ 
 class ReceiveEntity (Entity):
     def __init__(self, expected, to_announce, time):
         self.expect = expected
