@@ -46,8 +46,6 @@ Type start() to start the simulator.
 Good luck!"""
 
 start = sim.core.simulate
-time.sleep(30)
-topo.unlink(s1, s2)
 import code
 code.interact(local=locals(), banner='')
 

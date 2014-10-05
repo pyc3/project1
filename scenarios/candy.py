@@ -17,6 +17,7 @@ def create (switch_type = Hub, host_type = BasicHost):
     switch_type.create('s1')
     switch_type.create('s2')
     switch_type.create('s3')
+    switch_type.create('s4')
 
     # host_type.create('h1a')
     # host_type.create('h1b')
