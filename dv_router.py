@@ -134,25 +134,37 @@ class DVRouter (Entity): # only hosts and dvrouters
                         continue
                     if y[1] == nbr: # req1
                         #self.log("isnt it supposed to come here")
+                        if self.history != {}:
+                            if x[1] in self.history:
+                                if self.history[x[1]] == float("inf"):
+                                    continue
                         message.add_destination(x[1], float("inf")) # poison reverse
+                        self.history[x[1]] = float("inf")
                     else:
+                        if self.history != {}:
+                            if x[1] in self.history:
+                                if self.history[x[1]] == y[0]:
+                                    continue
                         message.add_destination(x[1], y[0])
+                        self.history[x[1]] = y[0]
             #self.log("beforeee: %s" % str(message.paths))
             # req2 - history can't just be last routingupdate()
             # has to be another forwarding table ><
-            if self.history != {}: # not empty history
-                for p,q in self.history.items():
-                    # self.log("myhistory= %s" % str(self.history))
-                    # self.log("myftable= %s" % str(self.forwarding_table))
-                    # self.log("p %s" % str(p))
-                    #self.log("message get %s" % message.get_distance(p[1]))
-                    if p[1] in message.paths.keys():
-                        if p == self:
-                            if message.get_distance(p[1]) == q[0]:
-                                message.paths = {key:value for key, value in message.paths.items() if key != p}
-                        else:
-                            if message.get_distance(p[1]) == q:
-                                message.paths = {key:value for key, value in message.paths.items() if key != p}
+            # if self.history != {}: # not empty history
+            #     for p,q in self.history.items():
+            #         # self.log("myhistory= %s" % str(self.history))
+            #         # self.log("myftable= %s" % str(self.forwarding_table))
+            #         # self.log("p %s" % str(p))
+            #         #self.log("message get %s" % message.get_distance(p[1]))
+
+
+            #         if p[1] in message.paths.keys():
+            #             if p == self:
+            #                 if message.get_distance(p[1]) == q[0]:
+            #                     message.paths = {key:value for key, value in message.paths.items() if key != p}
+            #             else:
+            #                 if message.get_distance(p[1]) == q:
+            #                     message.paths = {key:value for key, value in message.paths.items() if key != p}
             #self.log("afterrr: %s" % str(message.paths))    
 
             # if nbr in self.history.keys():
@@ -172,7 +184,9 @@ class DVRouter (Entity): # only hosts and dvrouters
             message.src = self
             message.dst = nbr #necessary?
             #self.history = {}
-            self.history = dict(self.forwarding_table)
+            # self.log("message paths %s" % message.paths)
+            # for dest, dist in message.paths:
+            #     self.history[dest] = dist
             self.log("HISTORY TABLE %s" % str(self.history))
             self.log("FORWARDING TABLE %s" % str(self.forwarding_table))
             self.log("message for %s from %s" % (nbr, self))
