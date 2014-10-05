@@ -21,13 +21,17 @@ class DVRouter (Entity): # only hosts and dvrouters
             if packet.is_link_up: # link up
                 #self.neighbors[packet.src] = packet.latency
                 best = packet.latency
-                from_who = packet.src
+                from_who = self #
                 for x,y in self.forwarding_table.items():
                     if x[1] == packet.src and x[0] != self:
+                        #self.log("why")
                         if best > y:
+                            #self.log("wahhhh")
                             best = y
-                            from_who = x[0]
+                            from_who = x[0]#
                 self.forwarding_table[(self, packet.src)] = (best, from_who)
+                #self.log("from whooo %s" % from_who)
+                #self.log("forwardingggg %s" % str(self.forwarding_table))
                 #self.forwarding_table[(self, packet.src)] = (packet.latency, self) # not necessarily!
                 self.ports[packet.src] = port
             else: # link down OR link cost change
@@ -37,10 +41,11 @@ class DVRouter (Entity): # only hosts and dvrouters
                     self.forwarding_table[(self, packet.src)] = (packet.latency, self)
                 else: # link cost change is bad/ link goes down (infinity)
                     best = packet.latency
-                    from_who = packet.src
+                    from_who = self
                     for x,y in self.forwarding_table.items():
                         if x[1] == packet.src and x[0] != self:
                             if best > y:
+                                #self.log("waahh2")
                                 best = y
                                 from_who = x[0]
                     if best == float("inf"):
@@ -73,7 +78,12 @@ class DVRouter (Entity): # only hosts and dvrouters
                     # self.forwarding_table[(self, packet.src)] = (best, from_who)
                     # is there another path?
                     # if latency is infinity, do i want to add?
-                    self.forwarding_table[(self, dest)] = (routing_table[dest] + self.forwarding_table[(self, source)][0], self.forwarding_table[(self, source)][1])
+                    #self.log("before routing: %s" % str(self.forwarding_table))
+                    # if dest == source:
+                    #     self.log("IS THIS IT GODDAMNIT")
+                        #self.forwarding_table[(self, dest)] = (routing_table[dest])
+                    self.forwarding_table[(self, dest)] = (routing_table[dest] + self.forwarding_table[(self, source)][0], source)
+                    #self.log("AFTER routing: %s" % str(self.forwarding_table))
                 else: # if it's in the forwarding table
                     if self.forwarding_table[(self, dest)] < (routing_table[dest] + self.forwarding_table[(self, source)][0]):
                         self.forwarding_table[(self, dest)] = (routing_table[dest] + self.forwarding_table[(self, source)][0])
@@ -114,21 +124,42 @@ class DVRouter (Entity): # only hosts and dvrouters
             # if self.forwarding_table[(self, nbr)] == float("inf"): # link went down/unreachable neighbor
             #     continue
             # else:
+
             for x,y in self.forwarding_table.items():
+
                 if x[0] == self: #only send your row
+                    #self.log("forwarding table %s" % str(self.forwarding_table))
+                    #self.log("from who??? %s" % y[1])
                     if x[1] == nbr: # req3
                         continue
-                    elif y[1] == nbr: # req1
+                    if y[1] == nbr: # req1
+                        #self.log("isnt it supposed to come here")
                         message.add_destination(x[1], float("inf")) # poison reverse
                     else:
                         message.add_destination(x[1], y[0])
+            #self.log("beforeee: %s" % str(message.paths))
             # req2 - history can't just be last routingupdate()
             # has to be another forwarding table ><
-            if nbr in self.history.keys():
-                oldrouting_table = self.history[nbr].paths
-                for p in oldrouting_table.keys():
-                    if message.get_distance(p) == oldrouting_table[p]:
-                        message.paths = {key:value for key, value in message.paths.items() if key != p}
+            if self.history != {}: # not empty history
+                for p,q in self.history.items():
+                    # self.log("myhistory= %s" % str(self.history))
+                    # self.log("myftable= %s" % str(self.forwarding_table))
+                    # self.log("p %s" % str(p))
+                    #self.log("message get %s" % message.get_distance(p[1]))
+                    if p[1] in message.paths.keys():
+                        if p == self:
+                            if message.get_distance(p[1]) == q[0]:
+                                message.paths = {key:value for key, value in message.paths.items() if key != p}
+                        else:
+                            if message.get_distance(p[1]) == q:
+                                message.paths = {key:value for key, value in message.paths.items() if key != p}
+            #self.log("afterrr: %s" % str(message.paths))    
+
+            # if nbr in self.history.keys():
+            #     oldrouting_table = self.history[nbr].paths
+            #     for p in oldrouting_table.keys():
+            #         if message.get_distance(p) == oldrouting_table[p]:
+            #             message.paths = {key:value for key, value in message.paths.items() if key != p}
             if message.paths == {}:
                 #self.log("???")
                 return
@@ -140,7 +171,10 @@ class DVRouter (Entity): # only hosts and dvrouters
             # if l:
             message.src = self
             message.dst = nbr #necessary?
-            self.history[nbr] = message
+            #self.history = {}
+            self.history = dict(self.forwarding_table)
+            self.log("HISTORY TABLE %s" % str(self.history))
+            self.log("FORWARDING TABLE %s" % str(self.forwarding_table))
             self.log("message for %s from %s" % (nbr, self))
             self.log("table: %s " % str(message.paths))
             self.send(message, b)
