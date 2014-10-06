@@ -25,13 +25,14 @@ class DVRouter (Entity):
                     if packet.latency < self.forwarding_table[(self, packet.src)][0]:
                         self.forwarding_table[(self, packet.src)] = (packet.latency, self)
                         self.log("discovery packet")
+                        self.log("%s trace: %s" % (packet.src, src(packet.trace)))
                         self.sendUpdate()
                         self.ports[packet.src] = port
                     if packet.latency == self.forwarding_table[(self, packet.src)][0]:
                         portA = port
-                        self.log("self= %s packet for port= %s" % (self, self.forwarding_table[(self, packet.src)][1]))
-                        self.log("ports= %s" % str(self.ports))
-                        self.log("neighbors= %s" % str(self.neighbors))
+                        # self.log("self= %s packet for port= %s" % (self, self.forwarding_table[(self, packet.src)][1]))
+                        # self.log("ports= %s" % str(self.ports))
+                        # self.log("neighbors= %s" % str(self.neighbors))
                         if self == self.forwarding_table[(self, packet.src)][1]:
                             portB = port #??? what...
                         else:
@@ -40,10 +41,12 @@ class DVRouter (Entity):
                             self.ports[packet.src] = port
                             self.forwarding_table[(self, packet.src)] = (self, packet.src)
                             self.log("discovery packet")
+                            self.log("%s trace: %s" % (packet.src, src(packet.trace))) ###
                             self.sendUpdate()
                 else:
                     self.forwarding_table[(self, packet.src)] = (packet.latency, self)
                     self.log("discovery packet")
+                    self.log("%s trace: %s" % (packet.src, str(packet.trace)))
                     self.sendUpdate()
             else: # link change or link down
                 if packet.latency == float("inf"): # if link down
@@ -54,14 +57,15 @@ class DVRouter (Entity):
                 from0 = self
                 for x,y in self.forwarding_table.items():
                     if x[1] == packet.src and x[0] != self: # cycle through column
-                        col = y[0]
-                        from0 = y[1]
+                        col = y
+                        from0 = x[0]#
                         #extra = self.neighbors[from] # is this the shortest way?????????
                         extra = self.forwarding_table[self, from0][0]
                         if col + extra < total:
                             total = col + extra # new distance to dst, could still be infinity
                 self.forwarding_table[(self, packet.src)] = (total, from0)
                 self.log("discovery packet")
+                self.log("%s trace: %s" % (packet.src, str(packet.trace)))
                 self.sendUpdate()
 
         # if routingupdate packet...
@@ -119,6 +123,7 @@ class DVRouter (Entity):
                         # self.log("first")
                         self.forwarding_table[(self, dest)] = (total, source)
             self.log("routing update packet")
+            self.log("%s trace: %s" % (packet.src, str(packet.trace)))
             self.sendUpdate()
 
         # if data packet...
@@ -126,8 +131,9 @@ class DVRouter (Entity):
         #   if there's a path, send it, or drop if not
         else: # DATA PACKET
             self.log("data packet")
-            self.log("packet.dest %s" % packet.dst)
-            self.log("available paths %s" % str(self.forwarding_table))
+            # self.log("packet.dest %s" % packet.dst)
+            self.log("%s trace: %s" % (packet.src, str(packet.trace)))
+            # self.log("available paths %s" % str(self.forwarding_table))
             if (self, packet.dst) in self.forwarding_table.keys() and self.forwarding_table[(self, packet.dst)][0] != float("inf"):#where to put 50?
                 if packet.dst in self.neighbors:
                     self.send(packet, self.ports[packet.dst])
@@ -147,21 +153,21 @@ class DVRouter (Entity):
                         continue # do i have to do poison reverse here?
                     else:
                         if x[1] in self.history:
-                            self.log("in history")
+                            #self.log("in history y[0]= %s and history[x[1]]= %s" % (y[0], self.history[x[1]]))
                             if y[0] != self.history[x[1]]:
                                 self.history[x[1]] = y[0]
                                 message.add_destination(x[1], y[0])
                         else:
-                            self.log("not in history")
+                            #self.log("not in history")
                             self.history[x[1]] = y[0]
                             message.add_destination(x[1], y[0])
             if message.paths == {}:
-                self.log("pass by here?")
+                #self.log("pass by here?")
                 return
             message.src = self
             message.dst = neigh
             #self.log("src %s and dst %s" % (message.src, message.dst))
-            #self.log("HISTORY TABLE %s" % str(self.history))
+            self.log("HISTORY TABLE %s" % str(self.history))
             self.log("FORWARDING TABLE for %s" % str(self.forwarding_table))
             self.log("message for %s from %s: %s" % (neigh, self, str(message.paths)))
             self.send(message, self.ports[neigh])
