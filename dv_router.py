@@ -24,11 +24,11 @@ class DVRouter (Entity):
                 if (self, packet.src) in self.forwarding_table.keys(): # there's a path to that new neighbor already
                     if packet.latency < self.forwarding_table[(self, packet.src)][0]:
                         self.forwarding_table[(self, packet.src)] = (packet.latency, self)
-                        self.log("discovery packet")
-                        self.log("%s trace: %s" % (packet.src, src(packet.trace)))
+                        self.log("%s discovers %s" % (self, packet.src))
+                        #self.log("%s trace: %s" % (packet.src, src(packet.trace)))
                         self.sendUpdate()
                         self.ports[packet.src] = port
-                    if packet.latency == self.forwarding_table[(self, packet.src)][0]:
+                    elif packet.latency == self.forwarding_table[(self, packet.src)][0]:
                         portA = port
                         # self.log("self= %s packet for port= %s" % (self, self.forwarding_table[(self, packet.src)][1]))
                         # self.log("ports= %s" % str(self.ports))
@@ -40,33 +40,49 @@ class DVRouter (Entity):
                         if portA < portB:
                             self.ports[packet.src] = port
                             self.forwarding_table[(self, packet.src)] = (self, packet.src)
-                            self.log("discovery packet")
-                            self.log("%s trace: %s" % (packet.src, src(packet.trace))) ###
+                            self.log("%s discovers %s" % (self, packet.src))
+                            #self.log("%s trace: %s" % (packet.src, src(packet.trace))) ###
                             self.sendUpdate()
                 else:
                     self.forwarding_table[(self, packet.src)] = (packet.latency, self)
-                    self.log("discovery packet")
-                    self.log("%s trace: %s" % (packet.src, str(packet.trace)))
+                    self.log("%s discovers %s" % (self, packet.src))
+                    #self.log("%s trace: %s" % (packet.src, str(packet.trace)))
                     self.sendUpdate()
-            else: # link change or link down
+            else: 
                 if packet.latency == float("inf"): # if link down
                     self.neighbors = {key:value for key, value in self.neighbors.items() if key != packet.src} # delete neighbor
                     self.ports = {key:value for key, value in self.ports.items() if key != packet.src} # delete port
-                # reroute ftable, for both inf and link change
-                total = packet.latency
-                from0 = self
-                for x,y in self.forwarding_table.items():
-                    if x[1] == packet.src and x[0] != self: # cycle through column
-                        col = y
-                        from0 = x[0]#
-                        #extra = self.neighbors[from] # is this the shortest way?????????
-                        extra = self.forwarding_table[self, from0][0]
-                        if col + extra < total:
-                            total = col + extra # new distance to dst, could still be infinity
-                self.forwarding_table[(self, packet.src)] = (total, from0)
-                self.log("discovery packet")
-                self.log("%s trace: %s" % (packet.src, str(packet.trace)))
-                self.sendUpdate()
+                    self.forwarding_table[x] = (float("inf"), self) # doesn't really matter FromWho
+                    for x,y in self.forwarding_table.items():
+                        if y[1] == packet.src:
+                            best = float("inf")
+                            fromwho = self # does it matter
+                            for a,b in self.forwarding_table.items():
+                                if x[1] == a[1]:
+                                    if b[0] + self.forwarding_table[(self, a[0])][0] < best: # won't ever be equal to infinity
+                                        self.forwarding_table[(self, packet.src)] = (b[0] + self.forwarding_table[(self, a[0])][0], self.forwarding_table[(self, a[0])][1])
+                                        self.ports[packet.src] = ports[self.forwarding_table[(self, a[0])][1]]
+                                        self.log("%s link to %s breaks" % (self, packet.src))
+                                        self.sendUpdate()
+                else: # if link change
+                    for x,y in self.forwarding_table.items(): # reroutes things that went through packet.src
+                        if y[1] == packet.src:
+                            best = packet.latency
+                            fromwho = packet.src
+                            portA = port
+                            for a,b in self.forwarding_table.items():
+                                if x[1] == a[1]: # what if b[0] == self.forwarding_table[(self, a[0])][0] ?? no change
+                                    if b[0] + self.forwarding_table[(self, a[0])][0] < best: # won't ever be equal to infinity
+                                        best = b[0] + self.forwarding_table[(self, a[0])][0]
+                                        fromwho = self.forwarding_table[(self, a[0])][1]
+                                    if b[0] + self.forwarding_table[(self, a[0])][0] == best: 
+                                        portB = self.ports[self.forwarding_table[(self, a[0])][1]]
+                                        if portB < portA:
+                                            best = b[0] + self.forwarding_table[(self, a[0])][0]
+                                            fromwho = self.forwarding_table[(self, a[0])][1]
+                            self.forwarding_table[(self, packet.src)] = (best, fromwho)
+                            self.log("%s link to %s changed to %s" % (self, packet.src, best))
+                            self.sendUpdate()
 
         # if routingupdate packet...
         #   update forwarding table if necessary
@@ -77,22 +93,14 @@ class DVRouter (Entity):
                 if pt == port:
                     source = pkt
                     continue
-            for dest in routing_table.keys():
-                # if dest is a neighbor, continue
-                # neighbors = []
-                # for m,n in self.forwarding_table.items():
-                #     if m[0] == self:
-                #         if n[1] == self: # neighbor
-                #             neighbors.append(m[1])
-                # if dest in neighbors:
-                #     self.log(" %s has these neighbors: %s" % (self, neighbors))
-                #     self.log("yes no maybe so")
-                #     continue
+            for dest, dist in routing_table.items():
                 self.forwarding_table[(source, dest)] = routing_table[dest]
                 total = routing_table[dest] + self.forwarding_table[(self, source)][0]
                 if self == dest:
-                    #self.log("why.... when does this ever happen")
-                    continue
+                    if dist < self.forwarding_table[(self, source)]:
+                        self.forwarding_table[(self, source)] = (dist, self)
+                    if dist > self.forwarding_table[(self, source)]:
+                        self.log("does this ever happen and why")
                 if (self, dest) not in self.forwarding_table:
                     # self.log("is this why")
                     self.forwarding_table[(self, dest)] = (total, source)
@@ -122,22 +130,25 @@ class DVRouter (Entity):
                     elif self.forwarding_table[(self, dest)][0] < total:
                         # self.log("first")
                         self.forwarding_table[(self, dest)] = (total, source)
-            self.log("routing update packet")
-            self.log("%s trace: %s" % (packet.src, str(packet.trace)))
+            self.forwarding_table[(self, self)] = (0, self)
+            self.log("%s updates %s with %s" % (source, self, str(routing_table)))
+            self.log("%s forwarding_table now is %s" % (self, str(self.forwarding_table)))
+            #self.log("%s trace: %s" % (packet.src, str(packet.trace)))
             self.sendUpdate()
 
         # if data packet...
         #   look for path to destination
         #   if there's a path, send it, or drop if not
         else: # DATA PACKET
-            self.log("data packet")
-            # self.log("packet.dest %s" % packet.dst)
             self.log("%s trace: %s" % (packet.src, str(packet.trace)))
-            # self.log("available paths %s" % str(self.forwarding_table))
+            self.log("packet.dest %s" % packet.dst)
+            self.log("available paths %s" % str(self.forwarding_table))
             if (self, packet.dst) in self.forwarding_table.keys() and self.forwarding_table[(self, packet.dst)][0] != float("inf"):#where to put 50?
                 if packet.dst in self.neighbors:
+                    self.log("%s sends data to %s" % (self, self.ports[packet.dst]))
                     self.send(packet, self.ports[packet.dst])
                 else:
+                    self.log("%s sends data to %s" % (self, self.ports[self.forwarding_table[(self, packet.dst)][1]]))
                     self.send(packet, self.ports[self.forwarding_table[(self, packet.dst)][1]])
 
     # sending updates to neighbors...
@@ -161,15 +172,17 @@ class DVRouter (Entity):
                             #self.log("not in history")
                             self.history[x[1]] = y[0]
                             message.add_destination(x[1], y[0])
+            if self in message.paths.keys():
+                message.paths = {key:value for key, value in message.paths.items() if key != self} # don't want to tell neighbors that your distance to yourself is 0
             if message.paths == {}:
                 #self.log("pass by here?")
                 return
             message.src = self
             message.dst = neigh
             #self.log("src %s and dst %s" % (message.src, message.dst))
-            self.log("HISTORY TABLE %s" % str(self.history))
-            self.log("FORWARDING TABLE for %s" % str(self.forwarding_table))
-            self.log("message for %s from %s: %s" % (neigh, self, str(message.paths)))
+            # self.log("HISTORY TABLE %s" % str(self.history))
+            #self.log("FORWARDING TABLE %s" % str(self.forwarding_table))
+            #self.log("message for %s from %s: %s" % (neigh, self, str(message.paths)))
             self.send(message, self.ports[neigh])
 
 
