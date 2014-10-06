@@ -109,23 +109,15 @@ class DVRouter (Entity):
                     self.forwarding_table[(self, dest)] = (total, source)
                     self.log("2nd change")
                     changed = True
-                else: # need to have lowest hop recorded / neighbors -- lowest though?
+                else:
                     if self.forwarding_table[(self, dest)][0] == total:
-                        if self.forwarding_table[(self, dest)][1] in self.ports.keys():
-                            portA = self.ports[self.forwarding_table[(self, dest)][1]]
-                            portB = port
-                            for x,y in self.ports.items():
-                                if y == portA:
-                                    srcA = x
-                                if y == portB:
-                                    srcB = x
-                            if portB < portA:
-                                src = srcB
-                            else:
-                                src = srcA
-                            self.forwarding_table[(self, dest)] = (total, src)
+                        portA = port
+                        portB = self.ports[self.forwarding_table[(self, dest)][1]]
+                        if port < portB:
+                            self.forwarding_table[(self, dest)] = (total, source)
                             self.log("3rd change")
                             changed = True
+
                     elif self.forwarding_table[(self, dest)][0] > total:
                         self.forwarding_table[(self, dest)] = (total, source)
                         self.log("4th change")
@@ -143,6 +135,8 @@ class DVRouter (Entity):
             self.log("%s trace: %s" % (packet.src, str(packet.trace)))
             self.log("packet.dest %s" % packet.dst)
             self.log("available paths %s" % str(self.forwarding_table))
+            if packet.dst == self:
+                return
             if (self, packet.dst) in self.forwarding_table.keys() and self.forwarding_table[(self, packet.dst)][0] != float("inf"):#where to put 50?
                 if packet.dst in self.neighbors:
                     self.log("%s sends data to %s" % (self, self.ports[packet.dst]))
