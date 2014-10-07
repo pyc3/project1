@@ -52,18 +52,95 @@ class DVRouter (Entity):
                 if packet.latency == float("inf"): # if link down
                     self.neighbors = {key:value for key, value in self.neighbors.items() if key != packet.src} # delete neighbor
                     self.ports = {key:value for key, value in self.ports.items() if key != packet.src} # delete port
-                    self.forwarding_table[x] = (float("inf"), self) # doesn't really matter FromWho
-                    for x,y in self.forwarding_table.items():
-                        if y[1] == packet.src:
-                            best = float("inf")
-                            fromwho = self # does it matter
-                            for a,b in self.forwarding_table.items():
-                                if x[1] == a[1]:
-                                    if b[0] + self.forwarding_table[(self, a[0])][0] < best: # won't ever be equal to infinity
-                                        self.forwarding_table[(self, packet.src)] = (b[0] + self.forwarding_table[(self, a[0])][0], self.forwarding_table[(self, a[0])][1])
-                                        self.ports[packet.src] = ports[self.forwarding_table[(self, a[0])][1]]
-                                        self.log("%s link to %s breaks" % (self, packet.src))
-                                        self.sendUpdate()
+                    self.log("%s link to %s breaks" % (self, packet.src))
+                    #todo = []
+                    for a,b in self.forwarding_table.items(): # a[1] == someone who can get you to packet.src
+                        if a[0] == self and b[1] == packet.src:
+                            #todo.append(a[1]) # the destination i lost a connection to
+                            self.forwarding_table[a] = (float("inf"), self)
+                            self.log("%s forwarding table now %s" % (self, str(self.forwarding_table)))
+                            self.sendUpdate()
+                    # for item in todo: # look through all your neighbors ftables to see if they can reach that, they should have their shortest path to that
+                    #     self.log("finding better path for %s" % item)
+                    #     best = float("inf")
+                    #     nToSrc = float("inf")
+                    #     fromwho = self
+                    #     for i in self.neighbors:
+                    #         ftable = i.forwarding_table
+                    #         #self.log("ftable %s" % str(ftable))
+                    #         for k,v in ftable.items():
+                    #             if k[0] == i: # just want to inspect their row of their forwarding table
+                    #                 #self.log("k[1]=%s and packet.src=%s" % (k[1], packet.src))
+                    #                 # if v[1] == self:
+                    #                 #     #~~~~~RECURSION~~~~~~ FUCK THIS
+                    #                 #     # look for next best path by inspecting ITS neighbors
+                    #                 #     theirneighbors = i.neighbors
+                    #                 #     best1 = float("inf")
+                    #                 #     nToSrc1 = float("inf")
+                    #                 #     fromwho1 = i
+                    #                 #     for nbr in theirneighbors:
+                    #                 #         if isinstance(nbr, DVRouter):
+                    #                 #             neightable = nbr.forwarding_table
+                    #                 #             for q,r in neightable.items():
+                    #                 #                 if q[0] == nbr:
+                    #                 #                     if q[1] == packet.src and r[1] != nbr:
+                    #                 #                         nToSrc1 = r[0]
+                    #                 #             if nToSrc1 == float("inf"):
+                    #                 #                 continue
+                    #                 #             elif nToSrc1 + theirneighbors[nbr] < best1:
+                    #                 #                 best1 = nToSrc1 + theirneighbors[nbr]
+                    #                 #                 fromwho1 = nbr
+                    #                 #             elif nToSrc1 + theirneighbors[nbr] == best1:
+                    #                 #                 porta = i.ports[nbr]
+                    #                 #                 portb = i.ports[fromwho1]
+                    #                 #                 if porta < portb:
+                    #                 #                     fromwho1 = nbr
+                    #                 #     #i.forwarding_table[(i, packet.src)] = (best1, fromwho1)
+                    #                 #     #self.log("nbr %s ftable now %s" % (i, str(i.forwarding_table)))
+                    #                 #     if best1 != float("inf"):
+                    #                 #         self.forwarding_table[(self, packet.src)] = (best1, i)
+                    #                 # if k[1] == packet.src and v[1] != self: # if neighbor to neighbor, nToSrc will be 0
+                    #                 #     nToSrc = v[0]
+                    #                     #self.log("%s has path to %s through %s for %s" % (i, packet.src, v[1], nToSrc))
+                    #                     #self.log("nToSrc=%s" % nToSrc)
+                    #         # if k[1] == i:
+                    #         #     best = self.neighbors[i]
+                    #         if nToSrc == float("inf"):
+                    #             self.log("inf?")
+                    #             continue
+                    #         elif nToSrc + self.neighbors[i] < best:
+                    #             #self.log("%s to %s originally %s. better is %s through %s" % (self, packet.src, best, nToSrc + self.neighbors[i], i))
+                    #             best = nToSrc + self.neighbors[i]
+                    #             fromwho = i
+                    #         elif nToSrc + self.neighbors[i] == best:
+                    #             #self.log("%s to %s same through %s" % (self, packet.src, i))
+                    #             portA = self.ports[i]
+                    #             portB = self.ports[fromwho]
+                    #             if portA < portB:
+                    #                 fromwho = i 
+                        # self.forwarding_table[(self, packet.src)] = (best, fromwho)
+                        # self.log("%s forwarding table now %s" % (self, str(self.forwarding_table)))
+                        # self.sendUpdate()
+                        # for c,d in self.forwarding_table.items():
+                        #     if c[1] == item and c[0] != self:
+                        #         self.log("did it get here") # shoud consider equal here
+                        #         self.log("%s other values %s for c[1] %s" % (best, str(self.forwarding_table[(self, c[1])][0]), c[1]))
+                        #         if best > self.forwarding_table[(self, c[1])][0]:
+                        #             self.log("what about here best %s other values %s for c[1] %s" % (best, str(self.forwarding_table[(self, c[1])][0])), c[1])
+                        #             best = self.forwarding_table[(self, c[1])][0]
+                        #             fromwho = self.forwarding_table[(self, c[1])][1]
+                        #         elif best == self.forwarding_table[(self, c[1])][0]:
+                        #             if best == float("inf"):
+                        #                 continue
+                        #             portA = self.ports[fromwho]
+                        #             portB = self.ports[self.forwarding_table[(self, c[1])][1]]
+                        #             if portA > portB:
+                        #                 best = self.forwarding_table[(self, c[1])][0]
+                        #                 fromwho = self.forwarding_table[(self, c[1])][1]
+                    # self.forwarding_table[(self, packet.src)] = (best, fromwho)
+                    # self.log("%s forwarding table now %s" % (self, str(self.forwarding_table)))
+                    # self.log("%s link to %s breaks" % (self, packet.src))
+                    # self.sendUpdate()
                 else: # if link change
                     for x,y in self.forwarding_table.items(): # reroutes things that went through packet.src
                         if y[1] == packet.src:
@@ -80,9 +157,9 @@ class DVRouter (Entity):
                                         if portB < portA:
                                             best = b[0] + self.forwarding_table[(self, a[0])][0]
                                             fromwho = self.forwarding_table[(self, a[0])][1]
-                            self.forwarding_table[(self, packet.src)] = (best, fromwho)
-                            self.log("%s link to %s changed to %s" % (self, packet.src, best))
-                            self.sendUpdate()
+                    self.forwarding_table[(self, packet.src)] = (best, fromwho)
+                    self.log("%s link to %s changed to %s" % (self, packet.src, best))
+                    self.sendUpdate()
 
         # if routingupdate packet...
         #   update forwarding table if necessary
@@ -97,31 +174,40 @@ class DVRouter (Entity):
             for dest, dist in routing_table.items():
                 self.forwarding_table[(source, dest)] = routing_table[dest]
                 total = routing_table[dest] + self.forwarding_table[(self, source)][0]
-                if self == dest:
-                    if dist < self.forwarding_table[(self, source)][0]:
-                        # self.log("dist %s self-source %s" % (dest, ))
-                        self.forwarding_table[(self, source)] = (dist, self)
-                        self.log("1st change")
-                        changed = True
-                    if dist > self.forwarding_table[(self, source)]:
-                        self.log("does this ever happen and why")
-                if (self, dest) not in self.forwarding_table:
-                    self.forwarding_table[(self, dest)] = (total, source)
-                    self.log("2nd change")
-                    changed = True
+                if dist == float("inf"):
+                    for f,t in self.forwarding_table.items():
+                        if f[0] == self and f[1] == dest:
+                            if t[0] != float("inf"): # thought the link was up
+                                self.forwarding_table[(self, dest)] = (float("inf"), self)
+                                change = True
                 else:
-                    if self.forwarding_table[(self, dest)][0] == total:
-                        portA = port
-                        portB = self.ports[self.forwarding_table[(self, dest)][1]]
-                        if port < portB:
-                            self.forwarding_table[(self, dest)] = (total, source)
-                            self.log("3rd change")
+                    if self == dest:
+                        if dist < self.forwarding_table[(self, source)][0]:
+                            # self.log("dist %s self-source %s" % (dest, ))
+                            self.forwarding_table[(self, source)] = (dist, self)
+                            self.log("1st change")
                             changed = True
-
-                    elif self.forwarding_table[(self, dest)][0] > total:
+                        if dist > self.forwarding_table[(self, source)]:
+                            self.log("does this ever happen and why")
+                    if (self, dest) not in self.forwarding_table:
                         self.forwarding_table[(self, dest)] = (total, source)
-                        self.log("4th change")
+                        self.log("2nd change")
                         changed = True
+                    else:
+                        if self.forwarding_table[(self, dest)][0] == total:
+                            portA = port
+                            if self.forwarding_table[(self, dest)][0] == float("inf"):
+                                self.log("is this infinity %s" % str(self.forwarding_table[(self, dest)][0]))
+                            portB = self.ports[self.forwarding_table[(self, dest)][1]]
+                            if port < portB:
+                                self.forwarding_table[(self, dest)] = (total, source)
+                                self.log("3rd change")
+                                changed = True
+
+                        elif self.forwarding_table[(self, dest)][0] > total:
+                            self.forwarding_table[(self, dest)] = (total, source)
+                            self.log("4th change")
+                            changed = True
             if changed:
                 self.forwarding_table[(self, self)] = (0, self)
                 self.log("%s updates %s with %s" % (source, self, str(routing_table)))
@@ -150,10 +236,9 @@ class DVRouter (Entity):
     def sendUpdate (self):
         for neigh, dist in self.neighbors.items():
             message = RoutingUpdate()
-
             for x,y in self.forwarding_table.items():
                 if x[0] == self: # only sending my row to neighbors
-                    if neigh == y[1]: # number 1      
+                    if neigh == y[1]: # number 1
                         continue # do i have to do poison reverse here?
                     else:
                         # if x[1] in self.history:
@@ -175,7 +260,7 @@ class DVRouter (Entity):
             #self.log("src %s and dst %s" % (message.src, message.dst))
             # self.log("HISTORY TABLE %s" % str(self.history))
             #self.log("FORWARDING TABLE %s" % str(self.forwarding_table))
-            #self.log("message for %s from %s: %s" % (neigh, self, str(message.paths)))
+            self.log("message for %s from %s: %s" % (neigh, self, str(message.paths)))
             self.send(message, self.ports[neigh])
 
 
