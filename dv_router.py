@@ -48,17 +48,57 @@ class DVRouter (Entity):
                     self.log("%s discovers %s" % (self, packet.src))
                     #self.log("%s trace: %s" % (packet.src, str(packet.trace)))
                     self.sendUpdate()
-            else: 
+            else: ##################
+            #     elif self.forwarding_table[(self, dest)][0] < total and turn:#and total == float("inf"): # routing_table[dest] + self.forwarding_table[(self, source)][0]
+            #         self.log("who got through: %s to %s" % (self, dest))
+            #         if self == dest:
+            #             continue
+            #         changed0 = False
+            #         best = total
+            #         fromwho = source
+            #         for i in self.neighbors.keys():
+            #             self.log("check my neighbor %s for better path" % i)
+            #             if isinstance(i, DVRouter):
+            #                 for l,m in i.forwarding_table.items():
+            #                     if l[0] == i and l[1] == dest and m[1] != self:
+            #                         if m[0] + self.forwarding_table[(self, i)][0] < best:
+            #                             best = m[0] + self.forwarding_table[(self, i)][0]
+            #                             fromwho = i
+            #                             #self.log("original path %s new path %s to %s" % (self.forwarding_table[(self, dest)][0], total, dest))
+            #                             changed0 = True
+            #                         elif m[0] + self.forwarding_table[(self, i)][0] == best:
+            #                             self.log("check %s best %s" % (str(i.forwarding_table[(i, dest)][1]), best))
+            #                             portA = self.ports[i]
+            #                             portB = self.ports[fromwho]
+            #                             if portA < portB:
+            #                                 fromwho = i
+            #                                 changed0 = True
+            #             self.log("best %s fromwho %s" % (best, fromwho))
+            #         if changed0 == True:
+            #             self.forwarding_table[(self, dest)] = (best, fromwho)
+            #             #self.log("DOES IT NEVER EVER COME HERE OR SOMETHING WAHHHHH")
+            #             changed = True
+            # if changed:
+            #     self.forwarding_table[(self, self)] = (0, self)
+            #     self.log("%s updates %s with %s" % (source, self, str(routing_table)))
+            #     self.log("%s forwarding_table now is %s" % (self, str(self.forwarding_table)))
+            #     self.sendUpdate()
+
+
+                ############~~~~~
                 if packet.latency == float("inf"): # if link down
                     #delete neighbor, port
                     self.neighbors = {key:value for key, value in self.neighbors.items() if key != packet.src} # delete neighbor
                     self.ports = {key:value for key, value in self.ports.items() if key != packet.src} # delete port
-                    self.log("%s link to %s breaks" % (self, packet.src))
+                    #self.log("%s link to %s breaks" % (self, packet.src))
 
                     reroute = [] # make list of destinations that need to be rerouted
                     for x,y in self.forwarding_table.items():
                         if x[0] == self and y[1] == packet.src:
                             reroute.append(x[1])
+                    reroute.append(packet.src)
+
+                    self.log("list of routes %s" % str(reroute))
 
                     for item in reroute: # for each destination, look at each of your neighbors and find a new best path
                         best = float("inf")
@@ -66,17 +106,28 @@ class DVRouter (Entity):
                         for i in self.neighbors.keys():
                             if isinstance (i, DVRouter):
                                 for l,m in i.forwarding_table.items():
-                                    if l[0] == i and l[1] == packet.src and m[1] != self:
+                                    #self.log("for neighbor %s l[0] %s l[1] %s m %s" % (i, l, item, m))
+                                    #if item == packet.src:
+
+                                    if l[0] == i and l[1] == item: # and m[1] != self: # packet src
+                                        self.log("#1") ### could be my bottleneck
                                         if m[0] + self.forwarding_table[(self, i)][0] < best:
+                                            self.log("#2")
                                             best = m[0] + self.forwarding_table[(self, i)][0]
                                             fromwho = i
                                         elif m[0] + self.forwarding_table[(self, i)][0] == best:
+                                            self.log("#3")
                                             portA = i.ports[i.forwarding_table[(i, item)][1]]
                                             portB = i.ports[fromwho]
                                             if portA < portB:
                                                 fromwho = i
+                        #self.forwarding_table[(packet.src, self)] = (float("inf"), packet.src)
+                        #self.forwarding_table[(self, packet.src)] = (float("inf"), self)
                         self.forwarding_table[(self, item)] = (best, fromwho) # update your ftable with rerouted routes
-                        self.log("%s forwarding table now %s" % (self, str(self.forwarding_table)))
+                        self.log("SNASTYYYYSDF %s forwarding table now %s" % (self, str(self.forwarding_table)))
+                        # up = RoutingUpdate()
+                        # up.add_destination(packet.src, float("inf"))
+                        # self.send(up, flood=True)
                         self.sendUpdate()
                 else: # if link change
                     for x,y in self.forwarding_table.items(): # reroutes things that went through packet.src
@@ -109,9 +160,10 @@ class DVRouter (Entity):
                     source = pkt
                     continue
             for dest, dist in routing_table.items(): #self = s4, source = s1, dest = h2a (before 3, now 4 dist)
-                ret = False
-                if (source, dest) not in self.forwarding_table:
-                    ret = True
+                turn = False
+                #self.log("source %s dest %s routingdest %s" % (source, dest, routing_table[dest]))
+                if (source, dest) in self.forwarding_table.keys() and self.forwarding_table[(source, dest)] < routing_table[dest]:
+                    turn = True
                 self.forwarding_table[(source, dest)] = routing_table[dest]
                 total = routing_table[dest] + self.forwarding_table[(self, source)][0]
                 # if dist == float("inf"):
@@ -143,38 +195,36 @@ class DVRouter (Entity):
                     elif self.forwarding_table[(self, dest)][0] > total:
                         self.forwarding_table[(self, dest)] = (total, source)
                         #self.log("4th change")
-                        changed = True
-                    elif self.forwarding_table[(self, dest)][0] < total and total == float("inf"): # routing_table[dest] + self.forwarding_table[(self, source)][0]
+                        changed = True # changed it but its not a new path
+                    #elif isinstance(dest, DVRouter) and dest.forwarding_table[(dest, self)][0] == total: 
+                    elif self.forwarding_table[(self, dest)][0] < total and turn:#and total == float("inf"): # routing_table[dest] + self.forwarding_table[(self, source)][0]
+                        self.log("who got through: %s to %s" % (self, dest))
                         if self == dest:
                             continue
-                        self.log("DOES IT COME HREERERERER, self %s dest %s total %s real distance %s" % (self, dest, total, str(self.forwarding_table[(self, dest)][0])))
-                        # maybe a link went down somewhere and your route got changed to be longer
-                        # search through your neighbors for a shorter path --- justtttt reroute one route???
-                        # reroute = [] # make list of destinations that need to be rerouted
-                        # for x,y in self.forwarding_table.items():
-                        #     if x[0] == self and y[1] == dest:
-                        #         reroute.append(x[1])
-                                ####?!#$?!#$?!#?$
                         changed0 = False
                         best = total
                         fromwho = source
                         for i in self.neighbors.keys():
+                            self.log("check my neighbor %s for better path" % i)
                             if isinstance(i, DVRouter):
                                 for l,m in i.forwarding_table.items():
                                     if l[0] == i and l[1] == dest and m[1] != self:
                                         if m[0] + self.forwarding_table[(self, i)][0] < best:
                                             best = m[0] + self.forwarding_table[(self, i)][0]
                                             fromwho = i
+                                            #self.log("original path %s new path %s to %s" % (self.forwarding_table[(self, dest)][0], total, dest))
                                             changed0 = True
                                         elif m[0] + self.forwarding_table[(self, i)][0] == best:
                                             self.log("check %s best %s" % (str(i.forwarding_table[(i, dest)][1]), best))
-                                            portA = self.ports[i] ##### wrong, maybe this whole thing is wrong
+                                            portA = self.ports[i]
                                             portB = self.ports[fromwho]
                                             if portA < portB:
                                                 fromwho = i
                                                 changed0 = True
+                            self.log("best %s fromwho %s" % (best, fromwho))
                         if changed0 == True:
                             self.forwarding_table[(self, dest)] = (best, fromwho)
+                            #self.log("DOES IT NEVER EVER COME HERE OR SOMETHING WAHHHHH")
                             changed = True
             if changed:
                 self.forwarding_table[(self, self)] = (0, self)
@@ -205,6 +255,7 @@ class DVRouter (Entity):
     def sendUpdate (self):
         for neigh, dist in self.neighbors.items():
             message = RoutingUpdate()
+            self.log("ftable for %s: %s" % (str(self.forwarding_table), self))
             for x,y in self.forwarding_table.items():
                 if x[0] == self: # only sending my row to neighbors
                     if neigh == y[1]: # number 1
